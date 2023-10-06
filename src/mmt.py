@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +9,7 @@ from astropy.time import Time
 from functions_v03 import our_fourier8
 
 
-def plot_results(time_array, mag_array, period, fd, save_path):
+def save_plot(time_array, mag_array, period, fd, save_path):
     plt.clf()
     # x = np.arange(0, 1.00001, 1/len(data))
     x = np.array([(((i - time_array[0]).value * 86400) % period) / period for i in time_array])
@@ -24,7 +25,7 @@ def plot_results(time_array, mag_array, period, fd, save_path):
     plt.savefig(save_path)
 
 
-def main(results_file):
+def iterate_through_one_track(results_file):
     res = {}
 
     with open(results_file) as file:
@@ -42,7 +43,7 @@ def main(results_file):
             res[obj][track] = int(start)
 
 
-def main2(results_file, tracks_file, save_plots):
+def plot_one_track(results_file, tracks_file, save_plots):
     with open(results_file) as file:
         data = json.load(file)
 
@@ -74,7 +75,7 @@ def main2(results_file, tracks_file, save_plots):
                 if len(time_array) > 0:
                     period = data[key][track]['P[s]']
                     save_path = os.path.join(save_plots, key + '_' + track + '_' + str(start_point) + '.png')
-                    plot_results(time_array, mag_array, period, data[key][track].get(str(start_point)), save_path)
+                    save_plot(time_array, mag_array, period, data[key][track].get(str(start_point)), save_path)
 
                 time_array = []
                 mag_array = []
@@ -85,7 +86,7 @@ def main2(results_file, tracks_file, save_plots):
             counter += 1
 
 
-def main3(results_file, fourier_element):
+def make_distribution_from_one_track(results_file, fourier_element):
     res = []
 
     with open(results_file) as file:
@@ -98,12 +99,9 @@ def main3(results_file, fourier_element):
             res.append(data[key][track][starting_point]['Fourier'][fourier_element])
 
     original_length = len(res)
-    res = [x for x in res if -30 < x < 30]
+    res = [x for x in res if -1 < x < 1]
     print(len(res) / original_length)
-    # n, bins, patches = plt.hist(sorted(res)[55:-80], bins=100)
-    n, bins, patches = plt.hist(res, bins=100)
-    # print(n)
-    # print(bins)
+    n, bins, _ = plt.hist(res, bins=100)
 
     plt.xlabel('Value')
     plt.ylabel('Frequency')
@@ -111,15 +109,17 @@ def main3(results_file, fourier_element):
     plt.grid(True)
     plt.show()
 
+    with open(fr'C:\Users\13and\PycharmProjects\diplomovka\data\fourier\{fourier_element}.pkl', 'wb') as f:
+        pickle.dump([n, bins], f)
 
-def main4(results_dir, fourier_element):
+
+def make_distribution_from_all_tracks(results_dir, fourier_element):
     res = []
 
     for directory in os.listdir(results_dir):
         if not os.path.isdir(os.path.join(results_dir, directory)):
             continue
 
-        # content = os.listdir(os.path.join(results_dir, directory))
         results_file = os.path.join(results_dir, directory, directory.split('_')[-1] + '.txt')
 
         with open(results_file) as file:
@@ -143,8 +143,26 @@ def main4(results_dir, fourier_element):
     plt.show()
 
 
+def load_pkl(pkl_dir):
+    coefficients = {'a0': 0, 'a1': 0, 'a2': 0, 'a3': 0, 'a4': 0, 'a5': 0, 'a6': 0, 'a7': 0, 'a8': 0,
+                    'b1': 0, 'b2': 0, 'b3': 0, 'b4': 0, 'b5': 0, 'b6': 0, 'b7': 0, 'b8': 0}
+
+    for c in coefficients.keys():
+        with open(os.path.join(pkl_dir, f'{c}.pkl'), 'rb') as f:
+            coefficients[c] = pickle.load(f)
+
+    x = np.arange(0, 1.00001, 1/500)
+    fd = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in coefficients.items()}
+    y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
+                     fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
+
+    plt.plot(x, y)
+    plt.show()
+
+
 if __name__ == '__main__':
-    # main(r'C:\Users\13and\Desktop\idk\Filter')
-    # main2(r'C:\Users\13and\PycharmProjects\DP\data\43.txt', r'C:\Users\13and\PycharmProjects\DP\data\43_tracks.txt',
-    #      r'C:\Users\13and\PycharmProjects\DP\data\mmt2')
-    main3(r'C:\Users\13and\PycharmProjects\DP\data\43.txt', 'a0')
+    # plot_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt',
+    #                r'C:\Users\13and\PycharmProjects\diplomovka\data\43_tracks.txt',
+    #                r'C:\Users\13and\PycharmProjects\diplomovka\data\mmt2')
+    # make_distribution_from_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'b8')
+    load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
