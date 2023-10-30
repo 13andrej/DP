@@ -86,8 +86,11 @@ def plot_one_track(results_file, tracks_file, save_plots):
             counter += 1
 
 
-def make_distribution_from_one_track(results_file, fourier_element):
-    res = []
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+def load_fourier_data_file(results_file, *elements):
+    res = {element: [] for element in elements}
 
     with open(results_file) as file:
         data = json.load(file)
@@ -96,25 +99,14 @@ def make_distribution_from_one_track(results_file, fourier_element):
 
     for track in data[key].keys():
         for starting_point in [x for x in data[key][track].keys() if x.isdigit()]:
-            res.append(data[key][track][starting_point]['Fourier'][fourier_element])
+            for element in elements:
+                res[element].append(data[key][track][starting_point]['Fourier'][element])
 
-    original_length = len(res)
-    res = [x for x in res if -1 < x < 1]
-    print(len(res) / original_length)
-    n, bins, _ = plt.hist(res, bins=100)
-
-    plt.xlabel('Value')
-    plt.ylabel('Frequency')
-    plt.title(f'Distribution Histogram {fourier_element}')
-    plt.grid(True)
-    plt.show()
-
-    with open(fr'C:\Users\13and\PycharmProjects\diplomovka\data\fourier\{fourier_element}.pkl', 'wb') as f:
-        pickle.dump([n, bins], f)
+    return [res[element] for element in elements]
 
 
-def make_distribution_from_all_tracks(results_dir, fourier_element):
-    res = []
+def load_fourier_data_dir(results_dir, *elements):
+    res = {element: [] for element in elements}
 
     for directory in os.listdir(results_dir):
         if not os.path.isdir(os.path.join(results_dir, directory)):
@@ -129,18 +121,55 @@ def make_distribution_from_all_tracks(results_dir, fourier_element):
 
         for track in data[key].keys():
             for starting_point in [x for x in data[key][track].keys() if x.isdigit()]:
-                res.append(data[key][track][starting_point]['Fourier'][fourier_element])
+                for element in elements:
+                    res[element].append(data[key][track][starting_point]['Fourier'][element])
 
+    return [res[element] for element in elements]
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+def compute_fourier_element_histogram(results_path, fourier_element, save_dir=None):
+    min_threshold, max_threshold = -2, 2
+    res = load_fourier_data_dir(results_path, fourier_element)[0] if os.path.isdir(results_path) \
+        else load_fourier_data_file(results_path, fourier_element)[0]
     original_length = len(res)
-    res = [x for x in res if -30 < x < 30]
-    print(len(res) / original_length)
-    n, bins, patches = plt.hist(res, bins=100)
+    res = [x for x in res if min_threshold < x < max_threshold]
+    print(f'{len(res) / original_length:.0%}')
+    n, bins, _ = plt.hist(res, bins=200)
+
+    plt.xlim(min_threshold, max_threshold)
+    plt.ylim(0, 1000)
     plt.xlabel('Value')
     plt.ylabel('Frequency')
     plt.title(f'Distribution Histogram {fourier_element}')
     plt.grid(True)
-    # plt.savefig('')
+
+    if save_dir is not None:
+        plt.savefig(os.path.join(save_dir, f'{fourier_element}.png'))
+        with open(os.path.join(save_dir, f'{fourier_element}.pkl'), 'wb') as f:
+            pickle.dump([n, bins], f)
+
     plt.show()
+
+
+def compare_two_fourier_elements(results_path, e1, e2):
+    min_threshold, max_threshold = -2, 2
+    res1, res2 = load_fourier_data_dir(results_path, e1, e2) if os.path.isdir(results_path) \
+        else load_fourier_data_file(results_path, e1, e2)
+
+    plt.xlim(min_threshold, max_threshold)
+    plt.ylim(min_threshold, max_threshold)
+    plt.scatter(res1, res2)
+    plt.xlabel(e1)
+    plt.ylabel(e2)
+    plt.title(f'{e1} compared to {e2}')
+    plt.grid(True)
+    plt.show()
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 def load_pkl(pkl_dir):
@@ -155,14 +184,59 @@ def load_pkl(pkl_dir):
     fd = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in coefficients.items()}
     y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
                      fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
+    # y = add_noise(x, y)
+    # y2 = add_lorentz(x, y)
+    y2 = add_delta(x, y)
 
-    plt.plot(x, y)
+    plt.ylabel('Magnitude')
+    plt.xlabel('Phase')
+    # plt.subplot(211)
+    plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
+    # plt.subplot(212)
+    plt.plot(x, y2, label='lc with lorentz')
     plt.show()
+
+    y2 = add_lorentz(x, y)
+
+    plt.ylabel('Magnitude')
+    plt.xlabel('Phase')
+    plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
+    plt.plot(x, y2, label='lc with lorentz')
+    plt.show()
+
+
+def add_lorentz(x, y):
+    amplitude = 1.0
+    center = 0.5  # np.random.rand()
+    width = 0.01
+
+    lorentzian = amplitude / (1 + ((x - center) / width) ** 2)
+    return y + lorentzian
+
+
+def add_delta(x, y):
+    sigma = 0.25
+    center = 0.5
+    width = 0.1
+    delta_approx = np.exp(-((x - center) / (sigma * width**2))**2) / (sigma * np.sqrt(np.pi))
+
+    return y + delta_approx
+
+
+def add_noise(x, y):
+    noise_amplitude = 0.25
+    noise = np.random.normal(0, noise_amplitude, len(y))
+
+    return y + noise
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 if __name__ == '__main__':
     # plot_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt',
     #                r'C:\Users\13and\PycharmProjects\diplomovka\data\43_tracks.txt',
     #                r'C:\Users\13and\PycharmProjects\diplomovka\data\mmt2')
-    # make_distribution_from_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'b8')
-    load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
+    compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
+    # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1', 'b1')
+    # load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
