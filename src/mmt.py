@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.time import Time
 
-from functions_v03 import our_fourier8
+from functions_v03 import our_fourier8, get_reduced_mag_np
 
 
 def save_plot(time_array, mag_array, period, fd, save_path):
@@ -55,7 +55,7 @@ def plot_one_track(results_file, tracks_file, save_plots):
 
     with open(tracks_file) as file:
         skip_lines = 7
-        last_track, counter, start_point, start_points, time_array, mag_array = None, 0, 0, [], [], []
+        last_track, counter, start_point, start_points, time_array, mag_array, dist_array = None, 0, 0, [], [], [], []
 
         for line in file:
             if skip_lines > 0:
@@ -63,7 +63,7 @@ def plot_one_track(results_file, tracks_file, save_plots):
                 continue
 
             split_entry = line.strip().split()
-            date, time, mag, track = split_entry[0], split_entry[1], split_entry[3], split_entry[9]
+            date, time, mag, d, track = split_entry[0], split_entry[1], split_entry[3], split_entry[6], split_entry[9]
 
             if last_track != track:
                 last_track = track
@@ -74,15 +74,22 @@ def plot_one_track(results_file, tracks_file, save_plots):
             if len(start_points) > 0 and counter == start_points[0]:
                 if len(time_array) > 0:
                     period = data[key][track]['P[s]']
+                    reduced_mag = get_reduced_mag_np(mag_array, dist_array)
+                    reduced_mag[-1] = reduced_mag[-2]
+                    m = np.argmin(reduced_mag)
+                    reduced_mag = np.concatenate((reduced_mag[m:], reduced_mag[:m]))
+
                     save_path = os.path.join(save_plots, key + '_' + track + '_' + str(start_point) + '.png')
-                    save_plot(time_array, mag_array, period, data[key][track].get(str(start_point)), save_path)
+                    save_plot(time_array, reduced_mag, period, data[key][track].get(str(start_point)), save_path)
 
                 time_array = []
                 mag_array = []
+                dist_array = []
                 start_point = start_points.pop(0)
 
             time_array.append(Time(f'{date}T{time}', format='isot'))
             mag_array.append(float(mag))
+            dist_array.append(float(d))
             counter += 1
 
 
@@ -168,6 +175,8 @@ def compare_two_fourier_elements(results_path, e1, e2):
     plt.grid(True)
     plt.show()
 
+    print(np.corrcoef(res1, res2))
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -184,25 +193,23 @@ def load_pkl(pkl_dir):
     fd = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in coefficients.items()}
     y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
                      fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
-    # y = add_noise(x, y)
+    y = add_noise(x, y)
     # y2 = add_lorentz(x, y)
     y2 = add_delta(x, y)
 
     plt.ylabel('Magnitude')
     plt.xlabel('Phase')
-    # plt.subplot(211)
-    plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
-    # plt.subplot(212)
+    # plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
     plt.plot(x, y2, label='lc with lorentz')
     plt.show()
 
-    y2 = add_lorentz(x, y)
-
-    plt.ylabel('Magnitude')
-    plt.xlabel('Phase')
-    plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
-    plt.plot(x, y2, label='lc with lorentz')
-    plt.show()
+    # y2 = add_lorentz(x, y)
+    #
+    # plt.ylabel('Magnitude')
+    # plt.xlabel('Phase')
+    # plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
+    # plt.plot(x, y2, label='lc with lorentz')
+    # plt.show()
 
 
 def add_lorentz(x, y):
@@ -216,7 +223,7 @@ def add_lorentz(x, y):
 
 def add_delta(x, y):
     sigma = 0.25
-    center = 0.5
+    center = np.random.rand()
     width = 0.1
     delta_approx = np.exp(-((x - center) / (sigma * width**2))**2) / (sigma * np.sqrt(np.pi))
 
@@ -237,6 +244,7 @@ if __name__ == '__main__':
     # plot_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt',
     #                r'C:\Users\13and\PycharmProjects\diplomovka\data\43_tracks.txt',
     #                r'C:\Users\13and\PycharmProjects\diplomovka\data\mmt2')
-    compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
-    # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1', 'b1')
-    # load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
+    # compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
+    # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a6', 'b6')
+    load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
+
