@@ -9,19 +9,28 @@ from astropy.time import Time
 from functions_v03 import our_fourier8, get_reduced_mag_np
 
 
+coefficients = ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']
+
+
 def save_plot(time_array, mag_array, period, fd, save_path):
     plt.clf()
-    # x = np.arange(0, 1.00001, 1/len(data))
     x = np.array([(((i - time_array[0]).value * 86400) % period) / period for i in time_array])
 
     if fd is not None:
         fd = fd['Fourier']
         y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
                          fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
+        residuals = mag_array - y
+        rms = np.sqrt(np.mean(np.square(residuals)))
+
     else:
         return
-    plt.plot(x, mag_array)
-    plt.plot(x, y)
+
+    plt.scatter(x, mag_array)
+    plt.plot(x, y, 'red')
+    plt.title(f'RMS = {rms*100:.0%}')
+    plt.xlabel('phase')
+    plt.ylabel('magnitude')
     plt.savefig(save_path)
 
 
@@ -143,7 +152,7 @@ def compute_fourier_element_histogram(results_path, fourier_element, save_dir=No
         else load_fourier_data_file(results_path, fourier_element)[0]
     original_length = len(res)
     res = [x for x in res if min_threshold < x < max_threshold]
-    print(f'{len(res) / original_length:.0%}')
+    print(f'{len(res) / original_length:.0%} ({len(res)} / {original_length})')
     n, bins, _ = plt.hist(res, bins=200)
 
     plt.xlim(min_threshold, max_threshold)
@@ -181,35 +190,34 @@ def compare_two_fourier_elements(results_path, e1, e2):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def load_pkl(pkl_dir):
-    coefficients = {'a0': 0, 'a1': 0, 'a2': 0, 'a3': 0, 'a4': 0, 'a5': 0, 'a6': 0, 'a7': 0, 'a8': 0,
-                    'b1': 0, 'b2': 0, 'b3': 0, 'b4': 0, 'b5': 0, 'b6': 0, 'b7': 0, 'b8': 0}
+def generate_light_curve(pkl_dir):
+    pickles = {x: None for x in coefficients}
 
-    for c in coefficients.keys():
+    for c in pickles.keys():
         with open(os.path.join(pkl_dir, f'{c}.pkl'), 'rb') as f:
-            coefficients[c] = pickle.load(f)
+            pickles[c] = pickle.load(f)
 
+    with open(os.path.join(pkl_dir, 'RMS.pkl'), 'rb') as f:
+        rms_n, rms_bins = pickle.load(f)
+
+    random_values = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in pickles.items()}
+    rms = np.random.choice(rms_bins[:-1], p=rms_n / rms_n.sum()) / 100
     x = np.arange(0, 1.00001, 1/500)
-    fd = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in coefficients.items()}
-    y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
-                     fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
-    y = add_noise(x, y)
-    # y2 = add_lorentz(x, y)
-    y2 = add_delta(x, y)
+    y = our_fourier8(x, *[random_values[i] for i in coefficients])
+    y2 = add_noise(y, rms)
+    y2 = add_delta(x, y2)
 
     plt.ylabel('Magnitude')
     plt.xlabel('Phase')
-    # plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
-    plt.plot(x, y2, label='lc with lorentz')
+    plt.scatter(x, y2, label='lc with delta')
+    plt.plot(x, y, 'red', label='fit')
+    plt.legend()
     plt.show()
 
-    # y2 = add_lorentz(x, y)
-    #
-    # plt.ylabel('Magnitude')
-    # plt.xlabel('Phase')
-    # plt.plot(x, y, linewidth=5, alpha=0.8, label='lc')
-    # plt.plot(x, y2, label='lc with lorentz')
-    # plt.show()
+    plt.plot(x, y2)
+    plt.show()
+
+    print(f'RMS: {rms:.0%}')
 
 
 def add_lorentz(x, y):
@@ -222,29 +230,29 @@ def add_lorentz(x, y):
 
 
 def add_delta(x, y):
-    sigma = 0.25
+    sigma = 0.5
     center = np.random.rand()
-    width = 0.1
-    delta_approx = np.exp(-((x - center) / (sigma * width**2))**2) / (sigma * np.sqrt(np.pi))
+    width = 0.01
+    delta_approx = np.exp(-((x - center) / (sigma * width))**2) / (sigma * np.sqrt(np.pi))
 
     return y + delta_approx
 
 
-def add_noise(x, y):
-    noise_amplitude = 0.25
-    noise = np.random.normal(0, noise_amplitude, len(y))
+def add_noise(y, desired_rms):
+    noise = np.random.normal(0, 1, len(y))
+    rms = np.sqrt(np.mean(np.square(noise)))
+    scaled_noise = noise * (desired_rms / rms)
 
-    return y + noise
+    return y + scaled_noise
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 
 
 if __name__ == '__main__':
-    # plot_one_track(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt',
-    #                r'C:\Users\13and\PycharmProjects\diplomovka\data\43_tracks.txt',
-    #                r'C:\Users\13and\PycharmProjects\diplomovka\data\mmt2')
+    # plot_one_track(r'C:\Users\13and\PycharmProjects\DP\data\43.txt',
+    #                r'C:\Users\13and\PycharmProjects\DP\data\43_tracks.txt',
+    #                r'C:\Users\13and\PycharmProjects\DP\data\mmt')
     # compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
     # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a6', 'b6')
-    load_pkl(r'C:\Users\13and\PycharmProjects\diplomovka\data\fourier')
-
+    generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier')
