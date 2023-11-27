@@ -18,17 +18,16 @@ def save_plot(time_array, mag_array, period, fd, save_path):
 
     if fd is not None:
         fd = fd['Fourier']
-        y = our_fourier8(x, fd['a0'], fd['a1'], fd['a2'], fd['a3'], fd['a4'], fd['a5'], fd['a6'], fd['a7'], fd['a8'],
-                         fd['b1'], fd['b2'], fd['b3'], fd['b4'], fd['b5'], fd['b6'], fd['b7'], fd['b8'])
+        y = our_fourier8(x, *[fd[c] for c in coefficients])
         residuals = mag_array - y
         rms = np.sqrt(np.mean(np.square(residuals)))
 
     else:
         return
 
-    plt.scatter(x, mag_array)
-    plt.plot(x, y, 'red')
-    plt.title(f'RMS = {rms*100:.0%}')
+    plt.scatter(x, mag_array, label='Data')
+    plt.plot(x, y, 'red', label='Fit')
+    plt.title(f'RMS = {rms:.2%}')
     plt.xlabel('phase')
     plt.ylabel('magnitude')
     plt.savefig(save_path)
@@ -146,6 +145,36 @@ def load_fourier_data_dir(results_dir, *elements):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
+def compute_number_of_points_histogram(results_path, save_dir=None):
+    res = np.array([])
+    with open(results_path) as file:
+        d = json.load(file)
+
+    d = d[list(d.keys())[0]]
+
+    for k, v in d.items():
+        points = v['Points']
+        starts = [int(x) for x in v.keys() if x.isdigit()]
+        starts.sort()
+        ends = [x for x in starts[1:] + [points]]
+        res = np.concatenate((res, np.array(ends) - np.array(starts)))
+
+    res = res[res < 1500]
+    n, bins, _ = plt.hist(res, bins=200)
+    plt.xlim(0, 1500)
+    plt.xlabel('No. Points')
+    plt.ylabel('Frequency')
+    plt.title(f'Distribution Histogram for number of points')
+    plt.grid(True)
+
+    if save_dir is not None:
+        plt.savefig(os.path.join(save_dir, 'Points.png'))
+        with open(os.path.join(save_dir, 'Points.pkl'), 'wb') as f:
+            pickle.dump([n, bins], f)
+
+    plt.show()
+
+
 def compute_fourier_element_histogram(results_path, fourier_element, save_dir=None):
     min_threshold, max_threshold = -2, 2
     res = load_fourier_data_dir(results_path, fourier_element)[0] if os.path.isdir(results_path) \
@@ -190,7 +219,7 @@ def compare_two_fourier_elements(results_path, e1, e2):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def generate_light_curve(pkl_dir):
+def generate_light_curve(pkl_dir, points=300, glint=False, save_dir=None, verbose=False):
     pickles = {x: None for x in coefficients}
 
     for c in pickles.keys():
@@ -202,31 +231,52 @@ def generate_light_curve(pkl_dir):
 
     random_values = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in pickles.items()}
     rms = np.random.choice(rms_bins[:-1], p=rms_n / rms_n.sum()) / 100
-    x = np.arange(0, 1.00001, 1/500)
-    y = our_fourier8(x, *[random_values[i] for i in coefficients])
+    x = np.arange(0, 1.00001, 1/(points - 1))
+    y = our_fourier8(x, *[random_values[c] for c in coefficients])
     y2 = add_noise(y, rms)
-    y2 = add_delta(x, y2)
+    if glint is True:
+        y2, center = add_delta(x, y2)
+    else:
+        center = None
 
     plt.ylabel('Magnitude')
     plt.xlabel('Phase')
-    plt.scatter(x, y2, label='lc with delta')
-    plt.plot(x, y, 'red', label='fit')
+    plt.scatter(x, y2, label='Data')
+    plt.plot(x, y, 'red', label='Fit')
     plt.legend()
-    plt.show()
 
-    plt.plot(x, y2)
-    plt.show()
+    if save_dir is not None:
+        name = len(os.listdir(os.path.join(save_dir, 'exports')))
+        plt.savefig(os.path.join(save_dir, 'images', f'{name}.png'))
+        with open(os.path.join(save_dir, 'exports', f'{name}.txt'), 'w') as file:
+            file.write(f'RMS: {rms:.3%}\n')
+            file.write(f'Number of points: {points}\n')
+            file.write(f'Glint: {glint}\n')
+            file.write(f'Glint position: {center:.3}\n')
+            for c in coefficients:
+                file.write(f'{c}: {random_values[c]:.3}\n')
+            file.write('Phase\tMag\tMagErr\n')
+            file.write(f'#{65*"="}\n')
+            for i in range(len(x)):
+                file.write(f'{x[i]}\t{y2[i]}\t{y2[i]-y[i]}\n')
 
-    print(f'RMS: {rms:.0%}')
+    if verbose:
+        plt.show()
+        plt.plot(x, y2)
+        plt.plot([center, center], [min(y2), max(y2)])
+        plt.show()
+        print(f'RMS: {rms:.2%}')
+        print(f'number of points: {len(y2)}')
+        print(f'glint position: {center}')
 
 
 def add_lorentz(x, y):
     amplitude = 1.0
-    center = 0.5  # np.random.rand()
+    center = np.random.rand()
     width = 0.01
 
     lorentzian = amplitude / (1 + ((x - center) / width) ** 2)
-    return y + lorentzian
+    return y + lorentzian, center
 
 
 def add_delta(x, y):
@@ -235,7 +285,7 @@ def add_delta(x, y):
     width = 0.01
     delta_approx = np.exp(-((x - center) / (sigma * width))**2) / (sigma * np.sqrt(np.pi))
 
-    return y + delta_approx
+    return y + delta_approx, center
 
 
 def add_noise(y, desired_rms):
@@ -255,4 +305,7 @@ if __name__ == '__main__':
     #                r'C:\Users\13and\PycharmProjects\DP\data\mmt')
     # compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
     # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a6', 'b6')
-    generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier')
+    # generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
+    #                      save_dir=r'C:\Users\13and\PycharmProjects\DP\data\dataset', verbose=True)
+    generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
+                         save_dir=None, verbose=True)
