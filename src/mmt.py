@@ -231,14 +231,14 @@ def generate_light_curve(pkl_dir, points=300, glint=False, save_dir=None, verbos
 
     random_values = {c: np.random.choice(bins[:-1], p=n / n.sum()) for c, (n, bins) in pickles.items()}
     rms = np.random.choice(rms_bins[:-1], p=rms_n / rms_n.sum()) / 100
+    center = None
     x = np.arange(0, 1.00001, 1/(points - 1))
     y = our_fourier8(x, *[random_values[c] for c in coefficients])
     y2 = add_noise(y, rms)
     if glint is True:
         y2, center = add_delta(x, y2)
-    else:
-        center = None
 
+    plt.title(['light curve without glint', f'light curve with glint ({center})'][glint])
     plt.ylabel('Magnitude')
     plt.xlabel('Phase')
     plt.scatter(x, y2, label='Data')
@@ -252,7 +252,7 @@ def generate_light_curve(pkl_dir, points=300, glint=False, save_dir=None, verbos
             file.write(f'RMS: {rms:.3%}\n')
             file.write(f'Number of points: {points}\n')
             file.write(f'Glint: {glint}\n')
-            file.write(f'Glint position: {center:.3}\n')
+            file.write(['Glint position: None\n', f'Glint position: {center:.3}\n'][glint])
             for c in coefficients:
                 file.write(f'{c}: {random_values[c]:.3}\n')
             file.write('Phase\tMag\tMagErr\n')
@@ -263,11 +263,13 @@ def generate_light_curve(pkl_dir, points=300, glint=False, save_dir=None, verbos
     if verbose:
         plt.show()
         plt.plot(x, y2)
-        plt.plot([center, center], [min(y2), max(y2)])
+        # plt.plot([center, center], [min(y2), max(y2)])
         plt.show()
         print(f'RMS: {rms:.2%}')
         print(f'number of points: {len(y2)}')
         print(f'glint position: {center}')
+
+    plt.clf()
 
 
 def add_lorentz(x, y):
@@ -305,7 +307,8 @@ if __name__ == '__main__':
     #                r'C:\Users\13and\PycharmProjects\DP\data\mmt')
     # compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
     # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a6', 'b6')
-    # generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
-    #                      save_dir=r'C:\Users\13and\PycharmProjects\DP\data\dataset', verbose=True)
-    generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
-                         save_dir=None, verbose=True)
+
+    for i in range(1):
+        glint = np.random.choice([True, False], p=[0.5, 0.5])
+        generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
+                             save_dir=r'C:\Users\13and\PycharmProjects\DP\data\dataset', verbose=False)
