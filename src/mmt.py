@@ -51,7 +51,7 @@ def iterate_through_one_track(results_file):
             res[obj][track] = int(start)
 
 
-def plot_one_track(results_file, tracks_file, save_plots):
+def plot_all_tracks(results_file, tracks_file, save_plots):
     with open(results_file) as file:
         data = json.load(file)
 
@@ -87,8 +87,11 @@ def plot_one_track(results_file, tracks_file, save_plots):
                     m = np.argmin(reduced_mag)
                     reduced_mag = np.concatenate((reduced_mag[m:], reduced_mag[:m]))
 
-                    save_path = os.path.join(save_plots, key + '_' + track + '_' + str(start_point) + '.png')
-                    save_plot(time_array, reduced_mag, period, data[key][track].get(str(start_point)), save_path)
+                    save_path_image = os.path.join(save_plots, 'images', f'{key}_{track}_{str(start_point)}.png')
+                    save_path_export = os.path.join(save_plots, 'exports',  f'{key}_{track}_{str(start_point)}.txt')
+                    save_plot(time_array, reduced_mag, period, data[key][track].get(str(start_point)), save_path_image)
+                    save_curve(time_array, reduced_mag, period, save_path_export)
+                    exit(88)
 
                 time_array = []
                 mag_array = []
@@ -99,6 +102,10 @@ def plot_one_track(results_file, tracks_file, save_plots):
             mag_array.append(float(mag))
             dist_array.append(float(d))
             counter += 1
+
+
+def plot_one_track():
+    pass
 
 
 def find_tracks_for_specific_satellite(tracks_dir, satellite):
@@ -290,6 +297,22 @@ def generate_light_curve(pkl_dir, points=300, glint=False, save_dir=None, verbos
     plt.clf()
 
 
+def save_curve(time_array, mag_array, period, save_path):
+    x = np.array([(((i - time_array[0]).value * 86400) % period) / period for i in time_array])
+
+    with open(save_path, 'w') as file:
+        file.write(f'RMS: \n')
+        file.write(f'Number of points: {len(mag_array)}\n')
+        file.write(f'Glint: \n')
+        file.write('Glint position: \n')
+        for c in coefficients:
+            file.write(f'{c}: \n')
+        file.write('Phase\tMag\tMagErr\n')
+        file.write(f'#{65 * "="}\n')
+        for i in range(len(x)):
+            file.write(f'{x[i]}\t{mag_array[i]}\t0.0\n')
+
+
 def add_lorentz(x, y):
     amplitude = 1.0
     center = np.random.rand()
@@ -320,15 +343,15 @@ def add_noise(y, desired_rms):
 
 
 if __name__ == '__main__':
-    # plot_one_track(r'C:\Users\13and\PycharmProjects\DP\data\43.txt',
-    #                r'C:\Users\13and\PycharmProjects\DP\data\43_tracks.txt',
-    #                r'C:\Users\13and\PycharmProjects\DP\data\mmt')
+    plot_all_tracks(r'C:\Users\13and\PycharmProjects\DP\data\43.txt',
+                    r'C:\Users\13and\PycharmProjects\DP\data\43_tracks.txt',
+                    r'C:\Users\13and\PycharmProjects\DP\data\mmt')
     # compute_fourier_element_histogram(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a1')
     # compare_two_fourier_elements(r'C:\Users\13and\PycharmProjects\diplomovka\data\43.txt', 'a6', 'b6')
-    generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
-                         save_dir=None, verbose=True)
+    # generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=True,
+    #                      save_dir=None, verbose=True)
 
-    # for i in range(91):
+    # for i in range(1000):
     #     glint_ = np.random.choice([True, False], p=[0.5, 0.5])
     #     generate_light_curve(r'C:\Users\13and\PycharmProjects\DP\data\fourier', points=300, glint=glint_,
     #                          save_dir=r'C:\Users\13and\PycharmProjects\DP\data\dataset', verbose=False)
