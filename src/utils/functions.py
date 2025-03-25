@@ -59,7 +59,7 @@ Taken from code of Matej Zigo - test_lc.py
 
 Input:
     float coefficients - all the coefficients are inputs
-    
+
 Output:
     float y - float y value
 
@@ -67,7 +67,7 @@ Output:
 
 
 def our_fourier8(x, a0, a1, a2, a3, a4, a5, a6, a7, a8, b1, b2, b3, b4, b5, b6, b7, b8):
-    y = a0 + a1 * np.cos(x * 2 * pi) + b1 * np.sin(x * 2 * pi) + \
+    y = 0 + a1 * np.cos(x * 2 * pi) + b1 * np.sin(x * 2 * pi) + \
         a2 * np.cos(2 * x * 2 * pi) + b2 * np.sin(2 * x * 2 * pi) + \
         a3 * np.cos(3 * x * 2 * pi) + b3 * np.sin(3 * x * 2 * pi) + \
         a4 * np.cos(4 * x * 2 * pi) + b4 * np.sin(4 * x * 2 * pi) + \
@@ -114,7 +114,7 @@ Input:
     float a,b,c - quadratic coefficients
 
 Output:
-    
+
 """
 
 
@@ -127,7 +127,7 @@ def func_poly2order(x, a, b, c):
 Get the detrended light curve from the original one, thanks to the 2nd 
 polynom order
 Input:
-    
+
 Output:
 
 """

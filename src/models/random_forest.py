@@ -50,7 +50,8 @@ def fourier(x, y, n):
 
 
 if __name__ == '__main__':
-    X, y = load_dataset(r'C:\Users\13and\PycharmProjects\DP\data\dataset\exports')
+    dat_path = r'C:\Users\13and\PycharmProjects\DP\data\dataset\01\exports'
+    X, y = load_dataset(dat_path)
     print(X.shape)
     print(y.shape)
 
