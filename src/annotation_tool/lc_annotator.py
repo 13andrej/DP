@@ -25,6 +25,7 @@ class LightCurveAnnotator(QWidget):
         self.light_curves = process_track(tracks_file, filter_file)
         self.current_index = 0
 
+        # Canvas with lc
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
 
@@ -41,6 +42,7 @@ class LightCurveAnnotator(QWidget):
         self.next_button.clicked.connect(self.show_next)
         self.save_button.clicked.connect(self.save_annotation)
 
+        # Group box
         self.group_box = QGroupBox('')
         self.group_box_layout = QVBoxLayout()
         self.radio1 = QRadioButton('Not annotated')
@@ -56,18 +58,24 @@ class LightCurveAnnotator(QWidget):
         self.group_box.setLayout(self.group_box_layout)
 
         # Layout
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.prev_button)
-        button_layout.addWidget(self.next_button)
-        button_layout.addWidget(self.save_button)
-        button_layout.addWidget(self.group_box)
+        layout1 = QVBoxLayout()
+        layout1.addWidget(self.info_display)
+        layout1.addWidget(self.group_box)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
-        layout.addWidget(self.info_display)
-        layout.addLayout(button_layout)
+        layout2 = QHBoxLayout()
+        layout2.addWidget(self.canvas)
+        layout2.addLayout(layout1)
 
-        self.setLayout(layout)
+        layout3 = QHBoxLayout()
+        layout3.addWidget(self.prev_button)
+        layout3.addWidget(self.next_button)
+        layout3.addWidget(self.save_button)
+
+        layout4 = QVBoxLayout()
+        layout4.addLayout(layout2)
+        layout4.addLayout(layout3)
+
+        self.setLayout(layout4)
         self.setWindowTitle('LC annotation')
         self.show()
         self.update_image()
