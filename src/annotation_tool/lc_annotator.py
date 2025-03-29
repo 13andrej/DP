@@ -83,7 +83,6 @@ class LightCurveAnnotator(QWidget):
     def update_image(self):
         """Update QLabel with the current image."""
         if self.light_curves:
-            print(f'{self.current_index+1}/{len(self.light_curves)}')
             self.set_checkbox()
             self.figure.clf()
 
@@ -194,7 +193,7 @@ class LightCurveAnnotator(QWidget):
 
 
 def ask_for_inout_dir():
-    input_file = easygui.diropenbox('ab', 'cd', default=r'C:\Users\13and\PycharmProjects\DP\data\mmt')
+    input_file = easygui.diropenbox('', 'choose directory', default=r'C:\Users\13and\OneDrive\AIN\DP\DP2\data\mmt')
     if input_file is None:
         print('Exiting')
         exit(0)
@@ -205,7 +204,7 @@ def ask_for_inout_dir():
 if __name__ == '__main__':
     input_dir = ask_for_inout_dir()
     p1, p2, num = resolve_dir(input_dir)
-    p3 = r'C:\Users\13and\PycharmProjects\DP\data\annotation.json'
+    p3 = r'C:\Users\13and\OneDrive\AIN\DP\DP2\data\annotation.json'
     app = QApplication(sys.argv)
     gallery = LightCurveAnnotator(p1, p2, p3, num)
     sys.exit(app.exec())
