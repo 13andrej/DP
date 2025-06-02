@@ -1,26 +1,26 @@
 import os
 
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, RandomizedSearchCV
+from matplotlib import pyplot as plt
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, RandomizedSearchCV
+from sklearn.svm import SVC
 
-from src.utils.constants import dataset_directory, synthetic_dataset_directory, data_directory, param_grid_rf
-from src.utils.file_handler import load_dataset, load_model, save_model, use_model_dir
+from src.utils.constants import dataset_directory, synthetic_dataset_directory, data_directory, param_grid_svm
+from src.utils.file_handler import load_dataset, save_model
 
 
 best_params = {
-    0: {'max_depth': 5, 'min_samples_split': 2, 'n_estimators': 300},
-    1: {'max_depth': 20, 'min_samples_split': 5, 'n_estimators': 50},
-    2: {'max_depth': 10, 'min_samples_split': 2, 'n_estimators': 300},
-    3: {'max_depth': 20, 'min_samples_split': 5, 'n_estimators': 100},
-    4: {'max_depth': 5, 'min_samples_split': 2, 'n_estimators': 300},
-    5: {'max_depth': None, 'min_samples_split': 2, 'n_estimators': 100}
+    0: {'C': 10, 'gamma': 'scale', 'kernel': 'rbf'},
+    1: {'C': 0.5, 'gamma': 'auto', 'kernel': 'rbf'},
+    2: {'C': 0.1, 'gamma': 'scale', 'kernel': 'rbf'},
+    3: {'C': 1.0, 'gamma': 'scale', 'kernel': 'rbf'},
+    4: {'C': 0.1, 'gamma': 'scale', 'kernel': 'rbf'},
+    5: {'C': 10, 'gamma': 'scale', 'kernel': 'rbf'}
 }
 
 
-def grid_search(param_grid=param_grid_rf):
-    model = RandomForestClassifier(random_state=42)
+def grid_search(param_grid=param_grid_svm):
+    model = SVC(random_state=42)
     grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
     grid_search.fit(X_train, y_train)
 
@@ -31,8 +31,8 @@ def grid_search(param_grid=param_grid_rf):
     print('Test set accuracy: {:.2f}'.format(test_score))
 
 
-def randomized_search(n=20, param_grid=param_grid_rf):
-    model = RandomForestClassifier(random_state=42)
+def randomized_search(n=20, param_grid=param_grid_svm):
+    model = SVC(random_state=42)
     rand_search = RandomizedSearchCV(model, param_distributions=param_grid, n_iter=n, cv=5)
     rand_search.fit(X_train, y_train)
 
@@ -43,8 +43,8 @@ def randomized_search(n=20, param_grid=param_grid_rf):
     print('Test set accuracy: {:.2f}'.format(test_score))
 
 
-def cross_val(n_estimators=100, max_depth=None, min_samples_split=2):
-    model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split)
+def cross_val(C=1.0, gamma='scale', kernel='rbf'):
+    model = SVC(C=C, gamma=gamma, kernel=kernel, random_state=42)
     scores = cross_val_score(model, X, y, cv=5, scoring='accuracy')
     print('Cross-validation scores:', scores)
     print('Average accuracy:', scores.mean())
@@ -52,8 +52,8 @@ def cross_val(n_estimators=100, max_depth=None, min_samples_split=2):
     return scores
 
 
-def train_model(n_estimators=100, max_depth=None, min_samples_split=2, save=False, show=True):
-    model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split)
+def train_model(C=1.0, gamma='scale', kernel='rbf', save=False, show=True):
+    model = SVC(C=C, gamma=gamma, kernel=kernel)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
     accuracy = accuracy_score(y_test, predictions)
@@ -76,12 +76,12 @@ def train_model(n_estimators=100, max_depth=None, min_samples_split=2, save=Fals
 
 def my_grid():
     res = {}
-    for n_estimators in param_grid_rf['n_estimators']:
-        for max_depth in param_grid_rf['max_depth']:
-            for min_samples_split in param_grid_rf['min_samples_split']:
-                a = train_model(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, show=False)
-                res[f'n_e={n_estimators}, m_d={max_depth}, m_s_s={min_samples_split}'] = a
-                print(f'n_e={n_estimators}, m_d={max_depth}, m_s_s={min_samples_split}', a)
+    for c in param_grid_svm['C']:
+        for gamma in param_grid_svm['gamma']:
+            for kernel in param_grid_svm['kernel']:
+                a = train_model(C=c, gamma=gamma, kernel=kernel, show=False)
+                res[f'C={c}, gamma={gamma}, kernel={kernel}'] = a
+                print(f'C={c}, gamma={gamma}, kernel={kernel}', a)
 
     best = None
     best_a = 0
@@ -96,8 +96,8 @@ def my_grid():
 
 if __name__ == '__main__':
     model_path = os.path.join(data_directory, 'rf_c.pkl')
-    features_mode = 0
-    train_mode = 0
+    features_mode = 2
+    train_mode = 1
 
     if train_mode:
         X_train, y_train = load_dataset(synthetic_dataset_directory, mode=features_mode)
@@ -109,12 +109,4 @@ if __name__ == '__main__':
     # grid_search()
     # print(my_grid())
     # train_model()
-    train_model(n_estimators=300, max_depth=5, min_samples_split=2)
-    # cross_val(n_estimators=300, max_depth=5, min_samples_split=2)
-
-    # use_model_dir(dataset_directory, model_path)
-    # use_model_dir(synthetic_dataset_directory)
-
-    # for i in range(6):
-    #     X, y = load_dataset(dataset_directory, mode=i)
-    #     cross_val()
+    train_model(C=0.1, gamma='auto', kernel='rbf')
