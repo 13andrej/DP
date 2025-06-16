@@ -228,6 +228,7 @@ def read_light_curve(light_curve_path, binary=True):
     reading_data = False
     phase = []
     mag = []
+    glint = []
     label = None
 
     with open(light_curve_path, encoding="utf8") as file:
@@ -236,6 +237,7 @@ def read_light_curve(light_curve_path, binary=True):
                 x, y, z = line.strip().split()
                 phase.append(float(x))
                 mag.append(float(y))
+                glint.append(float(z))
             elif line.startswith('#'):
                 reading_data = True
             elif line.startswith('Glint:'):
@@ -243,7 +245,7 @@ def read_light_curve(light_curve_path, binary=True):
                 if binary:
                     label = 1 if label > 0 else 0
 
-    return np.array(phase), np.array(mag), label
+    return np.array(phase), np.array(mag), np.array(glint), label
 
 
 def load_dataset(dataset_path, mode=4):
@@ -257,7 +259,7 @@ def load_dataset(dataset_path, mode=4):
     y_ = np.zeros(len(files))
 
     for index, filename in enumerate(files):
-        phase, mag, label = read_light_curve(os.path.join(dataset_path, filename))
+        phase, mag, glint, label = read_light_curve(os.path.join(dataset_path, filename))
         norm_mag = normalize(mag)
         f1 = fourier(phase, mag, 8)
         f2 = fourier(phase, mag, 18)
@@ -293,11 +295,31 @@ def load_dataset2(dataset_path, n=20):
     y_ = np.zeros(len(files))
 
     for index, filename in enumerate(files):
-        phase, mag, label = read_light_curve(os.path.join(dataset_path, filename))
+        phase, mag, glint, label = read_light_curve(os.path.join(dataset_path, filename))
         fc = fourier_coefficients(phase, mag, n)
 
         X_[index] = fc[1:]
         y_[index] = label
+
+    p = np.random.permutation(len(X_))
+    X_ = X_[p]
+    y_ = y_[p]
+
+    return X_, y_
+
+
+def load_dataset3(dataset_path):
+    """load dataset and extract features"""
+    files = os.listdir(dataset_path)
+    files = [f for f in files if f.endswith('.txt')]
+    X_ = np.zeros((len(files), 300))
+    y_ = np.zeros((len(files), 300))
+
+    for index, filename in enumerate(files):
+        phase, mag, glint, label = read_light_curve(os.path.join(dataset_path, filename))
+
+        X_[index] = normalize(mag)
+        y_[index] = glint < -0.01
 
     p = np.random.permutation(len(X_))
     X_ = X_[p]
@@ -320,7 +342,7 @@ def load_model(model_path):
 
 def use_model(lc_path, model_path):
     """test ml model on given light curve"""
-    phase, mag, label = read_light_curve(lc_path)
+    phase, mag, glint, label = read_light_curve(lc_path)
     f8 = fourier(phase, mag, 8)
     f15 = fourier(phase, mag, 15)
     features = np.abs(f15 - f8)

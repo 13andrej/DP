@@ -79,10 +79,10 @@ class LightCurveGenerator:
             # file.write(['Glint position: None\n', f'Glint position: {center:.3}\n'][int(glint)])
             for c in coefficients:
                 file.write(f'{c}: {self.lc_info[c]:.3}\n')
-            file.write('Phase\tMag\tMagFit\n')
+            file.write('Phase\tMag\tGlint\n')
             file.write(f'#{65*"="}\n')
             for i in range(self.lc_info['points']):
-                file.write(f'{self.x[i]}\t{self.y_diffuse[i] + self.y_noise[i] + self.y_specular[i]}\t{self.y_diffuse[i]}\n')
+                file.write(f'{self.x[i]}\t{self.y_diffuse[i] + self.y_noise[i] + self.y_specular[i]}\t{self.y_specular[i]}\n')
 
     def add_gaussian_noise(self, mean=0, std_dev=0.01):
         """add gaussian noise to its assigned array"""
@@ -121,5 +121,5 @@ class LightCurveGenerator:
 
 if __name__ == '__main__':
     LCG = LightCurveGenerator()
-    LCG.generate_light_curve(300, 1)
+    LCG.generate_light_curve(300, 2)
     LCG.show_light_curve()
