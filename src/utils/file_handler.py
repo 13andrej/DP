@@ -237,7 +237,7 @@ def read_light_curve(light_curve_path, binary=True):
                 x, y, z = line.strip().split()
                 phase.append(float(x))
                 mag.append(float(y))
-                glint.append(float(z))
+                glint.append(float(z)) if z != 'None' else glint.append(0)
             elif line.startswith('#'):
                 reading_data = True
             elif line.startswith('Glint:'):
